@@ -1,12 +1,12 @@
 import math
-import os
 import random
+import sys
 
 import numpy as np
-from matplotlib import pyplot as plt
 from scipy import signal
 from scipy.io import loadmat
 
+sys.path.append("..")
 from alignment import alignFloat, genAlign3, genLongestContinuous2
 
 
@@ -55,9 +55,7 @@ def genRandomStep(len, lowBound, highBound):
 
 
 isShow = False
-rawData = loadmat('../data/data_mobile_outdoor_1.mat')
-if not os.path.exists('./figures/'):
-    os.mkdir('./figures/')
+rawData = loadmat('../../data/data_mobile_indoor_2.mat')
 
 # CSIa1OrigRaw = rawData['A'][:, 0]
 # CSIb1OrigRaw = rawData['A'][:, 1]
@@ -72,7 +70,7 @@ if not os.path.exists('./figures/'):
 #     CSIb1Orig.append(CSIb1OrigRaw[i + 20000])
 CSIa1Orig = rawData['A'][:, 0]
 CSIb1Orig = rawData['A'][:, 1]
-CSIi10rig = loadmat('../data/data_mobile_outdoor_2.mat')['A'][:, 0]
+CSIi10rig = loadmat('../../data/data_mobile_outdoor_2.mat')['A'][:, 0]
 
 CSIa1Orig = np.array(CSIa1Orig)
 CSIb1Orig = np.array(CSIb1Orig)
@@ -82,29 +80,19 @@ dataLen = len(CSIa1Orig)  # 6745
 
 CSIe1Orig = np.random.normal(loc=np.mean(CSIa1Orig), scale=np.std(CSIa1Orig, ddof=1), size=dataLen)
 
-plt.close()
-plt.figure()
-plt.plot(range(len(CSIa1Orig[0:30])), CSIa1Orig[0:30], color="blue", linewidth=.5, label="CSIa1Orig raw")
-plt.legend(loc='upper left')
-plt.savefig('./figures/CSIa1Orig-raw.png')
-if isShow:
-    plt.show()
-else:
-    plt.close()
+# CSIa1Orig = smooth(CSIa1Orig, window_len=15, window='flat')
+# CSIb1Orig = smooth(CSIb1Orig, window_len=15, window='flat')
+# CSIe1Orig = smooth(CSIe1Orig, window_len=15, window="flat")
+# CSIi10rig = smooth(CSIi10rig, window_len=15, window="flat")
 
-CSIa1Orig = smooth(CSIa1Orig, window_len=15, window='flat')
-CSIb1Orig = smooth(CSIb1Orig, window_len=15, window='flat')
-CSIe1Orig = smooth(CSIe1Orig, window_len=15, window="flat")
-CSIi10rig = smooth(CSIi10rig, window_len=15, window="flat")
-
-plt.figure()
-plt.plot(range(len(CSIa1Orig[0:30])), CSIa1Orig[0:30], color="cyan", linewidth=.5, label="CSIa1Orig smooth")
-plt.legend(loc='upper left')
-plt.savefig('./figures/CSIa1Orig-smooth.png')
-if isShow:
-    plt.show()
-else:
-    plt.close()
+# plt.figure()
+# plt.plot(range(len(CSIa1Orig[0:30])), CSIa1Orig[0:30], color="cyan", linewidth=.5, label="CSIa1Orig smooth")
+# plt.legend(loc='upper left')
+# plt.savefig('./figures/CSIa1Orig-smooth.png')
+# if isShow:
+#     plt.show()
+# else:
+#     plt.close()
 
 CSIa1OrigBack = CSIa1Orig.copy()
 CSIb1OrigBack = CSIb1Orig.copy()
@@ -118,9 +106,9 @@ sft = 2
 intvl = 2 * sft + 1
 keyLen = 128
 addNoise = True
-opNums = keyLen
+step = 4
 rule = {'=': 0, '+': 1, '-': 3, '~': 2, '^': 3}
-# rule = {'=': 0, '+': 1, '-': 1, '~': 1, '^': 1}
+# rule = {'=': 0, '+': 2, '-': 3, '~': 3, '^': 1}
 
 originSum = 0
 correctSum = 0
@@ -149,15 +137,6 @@ for staInd in range(0, times * intvl + 1, intvl):
     tmpNoise = noise[range(staInd, endInd, 1)]
     tmpNoiseAdd = noiseAdd[range(staInd, endInd, 1)]
 
-    plt.figure()
-    plt.plot(range(len(tmpCSIa1[0:10])), tmpCSIa1[0:10], color="black", linewidth=.5, label="tmpCSIa1 segment")
-    plt.legend(loc='upper left')
-    plt.savefig('./figures/tmpCSIa1-segment-' + str(staInd) + '.png')
-    if isShow:
-        plt.show()
-    else:
-        plt.close()
-
     tmpCSIa1 = tmpCSIa1 - (np.mean(tmpCSIa1) - np.mean(tmpCSIb1))  # Mean value consistency
 
     # linspace函数生成元素为50的等间隔数列，可以指定第三个参数为元素个数
@@ -179,16 +158,6 @@ for staInd in range(0, times * intvl + 1, intvl):
         tmpCSIb1 = tmpPulse * tmpCSIb1
         tmpCSIe1 = tmpPulse * tmpCSIe1
         tmpCSIi1 = tmpPulse * tmpCSIi1
-
-    plt.figure()
-    plt.plot(range(len(tmpCSIa1[0:10])), tmpCSIa1[0:10], color="green", linewidth=.5,
-             label="tmpCSIa1 segment add noise")
-    plt.legend(loc='upper left')
-    plt.savefig('./figures/tmpCSIa1-segment-add-noise-' + str(staInd) + '.png')
-    if isShow:
-        plt.show()
-    else:
-        plt.close()
 
     CSIa1Orig[range(staInd, endInd, 1)] = tmpCSIa1
     CSIb1Orig[range(staInd, endInd, 1)] = tmpCSIb1
@@ -222,36 +191,32 @@ for staInd in range(0, times * intvl + 1, intvl):
             sortCSIi1[jj - permLen] = np.mean(CSIi1Tmp)
             sortNoise[ii] = np.mean(noiseTmp)
 
-    plt.figure()
-    plt.plot(range(len(sortCSIa1[0:10])), sortCSIa1[0:10], color="blue", linewidth=.5, label="tmpCSIa1 segment mean")
-    plt.legend(loc='upper left')
-    plt.savefig('./figures/tmpCSIa1-segment-mean-' + str(staInd) + '.png')
-    if isShow:
-        plt.show()
-    else:
-        plt.close()
-
     # sortCSIa1是原始算法中排序前的数据
-    # 防止对数的真数为0导致计算错误（不平滑的话没有这个问题）
-    # sortCSIa1 = np.log10(np.abs(sortCSIa1) + 0.01)
-    # sortCSIb1 = np.log10(np.abs(sortCSIb1) + 0.01)
-    # sortCSIe1 = np.log10(np.abs(sortCSIe1) + 0.01)
-    # sortNoise = np.log10(np.abs(sortNoise) + 0.01)
-    # sortCSIi1 = np.log10(np.abs(sortCSIi1) + 0.01)
-    sortCSIa1 = np.log10(np.abs(sortCSIa1))
-    sortCSIb1 = np.log10(np.abs(sortCSIb1))
-    sortCSIe1 = np.log10(np.abs(sortCSIe1))
-    sortNoise = np.log10(np.abs(sortNoise))
-    sortCSIi1 = np.log10(np.abs(sortCSIi1))
+    # 防止对数的真数为0导致计算错误
+    sortCSIa1 = np.log10(np.abs(sortCSIa1) + 0.01)
+    sortCSIb1 = np.log10(np.abs(sortCSIb1) + 0.01)
+    sortCSIe1 = np.log10(np.abs(sortCSIe1) + 0.01)
+    sortNoise = np.log10(np.abs(sortNoise) + 0.01)
+    sortCSIi1 = np.log10(np.abs(sortCSIi1) + 0.01)
 
-    plt.figure()
-    plt.plot(range(len(sortCSIa1[0:10])), sortCSIa1[0:10], color="red", linewidth=.5, label="tmpCSIa1 segment log10")
-    plt.legend(loc='upper left')
-    plt.savefig('./figures/tmpCSIa1-segment-log10-' + str(staInd) + '.png')
-    if isShow:
-        plt.show()
-    else:
-        plt.close()
+    shuffleArray = list(range(len(sortCSIa1)))
+    CSIa1Back = []
+    CSIb1Back = []
+    CSIe1Back = []
+    CSIn1Back = []
+    random.shuffle(shuffleArray)
+    for i in range(len(sortCSIa1)):
+        CSIa1Back.append(sortCSIa1[shuffleArray[i]])
+    for i in range(len(sortCSIb1)):
+        CSIb1Back.append(sortCSIb1[shuffleArray[i]])
+    for i in range(len(sortCSIe1)):
+        CSIe1Back.append(sortCSIe1[shuffleArray[i]])
+    for i in range(len(sortNoise)):
+        CSIn1Back.append(sortNoise[shuffleArray[i]])
+    sortCSIa1 = CSIa1Back
+    sortCSIb1 = CSIb1Back
+    sortCSIe1 = CSIe1Back
+    sortNoise = CSIn1Back
 
     # 最后各自的密钥
     a_list = []
@@ -263,6 +228,21 @@ for staInd in range(0, times * intvl + 1, intvl):
     for i in range(len(sortCSIa1)):
         diffAB = max(diffAB, abs(sortCSIa1[i] - sortCSIb1[i]))
     print("\033[0;32;40mAB对应位置最大差距", diffAB, "\033[0m")
+
+    diffA = 0
+    diffB = 0
+    for i in range(len(sortCSIa1)):
+        diffA = max(diffB, abs(sortCSIa1[i] - sortCSIe1[i]))
+    for i in range(len(sortCSIb1)):
+        diffB = max(diffB, abs(sortCSIb1[i] - sortCSIe1[i]))
+    diffAB = abs(diffA - diffB)
+    print("\033[0;32;40mAE对应位置最大差距", diffA, "\033[0m")
+    print("\033[0;32;40mBE对应位置最大差距", diffB, "\033[0m")
+    print("\033[0;32;40mAB对应位置最大差距", diffAB, "\033[0m")
+
+    # diffAB = np.std(sortCSIa1)
+    # print("\033[0;32;40mAB所有的对应位置最大差距", allDiffAB, "\033[0m")
+
     maxDiffAB = max(maxDiffAB, diffAB)
     allDiffAB = 0
     for i in range(len(sortCSIa1)):
@@ -282,10 +262,14 @@ for staInd in range(0, times * intvl + 1, intvl):
 
     opIndex = []
     editOps = []
-    for i in range(len(sortCSIa1)):
-        editOps.append("=" + str(i))
+    indices = []
+    # diffAB = 0.1
+    insUpdBounds = diffAB
+    # insUpdBounds = 2
+    # for i in range(len(sortCSIa1)):
+    #     editOps.append("=" + str(i))
     # sortCSIi1 = np.random.normal(loc=np.mean(sortCSIa1), scale=np.std(sortCSIa1, ddof=1), size=len(sortCSIa1))
-    # sortCSIi1 = np.random.uniform(min(sortCSIa1), max(sortCSIa1), len(sortCSIa1))
+    sortCSIi1 = np.random.uniform(min(sortCSIa1), max(sortCSIa1), len(sortCSIa1))
     for i in range(opNums):
         # 按权重比例控制各种编辑的次数
         # flag = i % 12
@@ -313,45 +297,69 @@ for staInd in range(0, times * intvl + 1, intvl):
         #     swapNum += 1
 
         flag = random.randint(0, 3)
+        # 不重复编辑同一个元素
         index = random.randint(0, len(sortCSIa1P) - 1)
+        while index in indices:
+            index = random.randint(0, len(sortCSIa1P) - 1)
+        indices.append(index)
         if flag == 0:
-            insertIndex = random.randint(0, len(sortCSIi1) - 1)
-            while math.fabs(sortCSIi1[insertIndex] - sortCSIa1P[index]) <= 2:
-                insertIndex = random.randint(0, len(sortCSIi1) - 1)
+            # 插入时不光要确保当前插入的对应元素的距离不能过近，还要考虑同一个segment的元素
+            insertIndex = 0
+            condition = True
+            segmentIndex = int(index / step)
+            while condition:
+                for j in range(step):
+                    if segmentIndex * step + j < len(sortCSIa1P) and math.fabs(
+                            sortCSIi1[insertIndex] - sortCSIa1P[segmentIndex * step + j]) <= insUpdBounds:
+                        # 继续用下一个备选插入值
+                        insertIndex += 1
+                        # 所有的备选已用完
+                        if insertIndex == len(sortCSIi1) - 1:
+                            condition = False
+                        # 每次新选一个备选时从segment的开头重新计算距离
+                        break
+                condition = False
             sortCSIa1P.insert(index, sortCSIi1[insertIndex])
-            editOps.insert(index, "+" + str(index))
+            editOps.append("+" + str(index))
             insertNum += 1
         elif flag == 1:
             sortCSIa1P.remove(sortCSIa1P[index])
-            editOps[index] = "-" + str(index)
+            editOps.append("-" + str(index))
             deleteNum += 1
-        elif flag == 2:
-            updateIndex = random.randint(0, len(sortCSIi1) - 1)
-            while math.fabs(sortCSIa1P[index] - sortCSIi1[updateIndex]) <= 2:
-                updateIndex = random.randint(0, len(sortCSIi1) - 1)
+        elif flag == insUpdBounds:
+            updateIndex = 0
+            condition = True
+            segmentIndex = int(index / step)
+            while condition:
+                for j in range(step):
+                    if segmentIndex * step + j < len(sortCSIa1P) and math.fabs(
+                            sortCSIi1[updateIndex] - sortCSIa1P[segmentIndex * step + j]) <= insUpdBounds:
+                        # 继续用下一个备选插入值
+                        updateIndex += 1
+                        # 所有的备选已用完
+                        if updateIndex == len(sortCSIi1) - 1:
+                            condition = False
+                        # 每次新选一个备选时从segment的开头重新计算距离
+                        break
+                condition = False
             sortCSIa1P[index] = sortCSIi1[updateIndex]
-            editOps[index] = "~" + str(index)
+            editOps.append("~" + str(index))
             updateNum += 1
         elif flag == 3:
-            swapIndex = random.randrange(0, len(sortCSIa1P) - 1, 2)
+            swapIndex = 0
+            while swapIndex in indices:
+                swapIndex += 2
+            indices.append(swapIndex)
             tmp = sortCSIa1P[swapIndex]
             sortCSIa1P[swapIndex] = sortCSIa1P[swapIndex + 1]
             sortCSIa1P[swapIndex + 1] = tmp
-            editOps[swapIndex] = "^" + str(index)
+            editOps.append("^" + str(swapIndex))
             swapNum += 1
 
     print("numbers of insert:", insertNum)
     print("numbers of delete:", deleteNum)
     print("numbers of update:", updateNum)
     print("numbers of swap:", swapNum)
-
-    plt.figure()
-    plt.plot(range(len(sortCSIa1P[0:10])), sortCSIa1P[0:10], color="red", linewidth=.5, label="sortCSIa1P segment edit")
-    plt.legend(loc='upper left')
-    if isShow:
-        plt.show()
-    else:
-        plt.close()
 
     print("sortCSIa1P", len(sortCSIa1P), sortCSIa1P)
     print("sortCSIa1", len(sortCSIa1), list(sortCSIa1))
@@ -362,8 +370,12 @@ for staInd in range(0, times * intvl + 1, intvl):
     print("editOps", len(editOps), editOps)
 
     # 用a1P匹配ai，得到rule，再用rule对其a1P
-    # threshold = 0.02
+    # threshold = 1.8
     threshold = diffAB
+    # rule1 = {'=': 0, '+': 1, '-': 3, '~': 2, '^': 3}
+    # rule2 = {'=': 0, '+': 1, '-': 3, '~': 2, '^': 3}
+    # rule3 = {'=': 0, '+': 3, '-': 1, '~': 2, '^': 1}
+    # rule4 = {'=': 0, '+': 3, '-': 1, '~': 2, '^': 1}
     # 只匹配相等的元素位置敌手的成功率很低，但加密强度不高
     # ruleStr1 = alignFloat(rule, sortCSIa1P, sortCSIa1, threshold)
     # alignStr1 = genAlign(ruleStr1)
@@ -391,39 +403,99 @@ for staInd in range(0, times * intvl + 1, intvl):
     # alignStr4 = genAlign2(ruleStr4)
 
     # 匹配不相等的是在敌手成功率和加密强度间的折中
-    ruleStr1 = alignFloat(rule, sortCSIa1P, sortCSIa1, threshold)
-    alignStr1 = genAlign3(ruleStr1)
+    # 分组匹配
+    ruleStr1 = []
+    ruleStr2 = []
+    ruleStr3 = []
+    ruleStr4 = []
+    # for i in range(int(len(sortCSIa1) / step)):
+    # ruleStr1.append(
+    #     alignFloat(rule, sortCSIi1[i * step: (i + 1) * step], sortCSIa1[i * step: (i + 1) * step], threshold))
+    # ruleStr2.append(
+    #     alignFloat(rule, sortCSIi1[i * step: (i + 1) * step], sortCSIb1[i * step: (i + 1) * step], threshold))
+    # ruleStr3.append(
+    #     alignFloat(rule, sortCSIi1[i * step: (i + 1) * step], sortCSIe1[i * step: (i + 1) * step], threshold))
+    # ruleStr4.append(
+    #     alignFloat(rule, sortCSIi1[i * step: (i + 1) * step], sortNoise[i * step: (i + 1) * step], threshold))
+    for i in range(int(len(sortCSIa1) / step)):
+        ruleStr1.append(
+            alignFloat(rule, sortCSIa1P[i * step: (i + 1) * step], sortCSIa1[i * step: (i + 1) * step], threshold))
+        ruleStr2.append(
+            alignFloat(rule, sortCSIa1P[i * step: (i + 1) * step], sortCSIb1[i * step: (i + 1) * step], threshold))
+        ruleStr3.append(
+            alignFloat(rule, sortCSIa1P[i * step: (i + 1) * step], sortCSIe1[i * step: (i + 1) * step], threshold))
+        ruleStr4.append(
+            alignFloat(rule, sortCSIa1P[i * step: (i + 1) * step], sortNoise[i * step: (i + 1) * step], threshold))
+
     print("ruleStr1", len(ruleStr1), ruleStr1)
-    ruleStr2 = alignFloat(rule, sortCSIa1P, sortCSIb1, threshold)
-    alignStr2 = genAlign3(ruleStr2)
     print("ruleStr2", len(ruleStr2), ruleStr2)
-    ruleStr3 = alignFloat(rule, sortCSIa1P, sortCSIe1, threshold)
-    alignStr3 = genAlign3(ruleStr3)
     print("ruleStr3", len(ruleStr3), ruleStr3)
-    ruleStr4 = alignFloat(rule, sortCSIa1P, sortNoise, threshold)
-    alignStr4 = genAlign3(ruleStr4)
+
+    # 如果离a1P特别接近就删除这一段
+    # for i in range(int(max(len(sortCSIa1), len(sortCSIa1P)) / step)):
+    #     if i >= len(ruleStr1):
+    #         continue
+    #     for j in range(step):
+    #         if math.fabs(sortCSIa1[i + j] - sortCSIa1P[i + j]) <= diffAB - diffAB / 2:
+    #             ruleStr1.remove(ruleStr1[i])
+    #             break
+    # for i in range(int(max(len(sortCSIb1), len(sortCSIa1P)) / step)):
+    #     if i >= len(ruleStr2):
+    #         continue
+    #     for j in range(step):
+    #         if math.fabs(sortCSIb1[i + j] - sortCSIa1P[i + j]) <= diffAB - diffAB / 2:
+    #             ruleStr2.remove(ruleStr2[i])
+    #             break
+    # for i in range(int(max(len(sortCSIe1), len(sortCSIa1P)) / step)):
+    #     if i >= len(ruleStr3):
+    #         continue
+    #     for j in range(step):
+    #         if math.fabs(sortCSIe1[i + j] - sortCSIa1P[i + j]) <= diffAB - diffAB / 2:
+    #             ruleStr3.remove(ruleStr3[i])
+    #             break
+    # for i in range(int(max(len(sortNoise), len(sortCSIa1P)) / step)):
+    #     if i >= len(ruleStr4):
+    #         continue
+    #     for j in range(step):
+    #         if math.fabs(sortNoise[i + j] - sortCSIa1P[i + j]) <= diffAB - diffAB / 2:
+    #             ruleStr4.remove(ruleStr4[i])
+    #             break
+
+    # print("ruleStr1", len(ruleStr1), ruleStr1)
+    # print("ruleStr2", len(ruleStr2), ruleStr2)
+    # print("ruleStr3", len(ruleStr3), ruleStr3)
 
     # 检错
-    for i in range(min(len(ruleStr1), len(ruleStr2))):
-        if ruleStr1[i] != ruleStr2[i]:
-            indexAP = i
-            indexA = i
-            j = 0
-            if j in range(i):
-                if ruleStr1[j] == '-':
-                    indexAP += 1
-                    indexA -= 1
-                if ruleStr1[j] == '+':
-                    indexA += 1
-                    indexAP -= 1
-            if indexA + 1 >= len(sortCSIa1) or indexAP + 1 >= len(sortCSIa1P):
-                continue
-            if indexA - 1 < 0 or indexAP - 1 < 0:
-                continue
-            print("\033[0;30;42m", i, sortCSIa1[indexA], sortCSIb1[indexA], sortCSIa1P[indexAP], "\033[0m")
-            print("\033[0;30;42m", sortCSIa1P[indexAP - 1], sortCSIa1P[indexAP], sortCSIa1P[indexAP + 1], "\033[0m")
-            print("\033[0;30;42m", sortCSIa1[indexA - 1], sortCSIa1[indexA], sortCSIa1[indexA + 1], "\033[0m")
-            print("\033[0;30;42m", sortCSIb1[indexA - 1], sortCSIb1[indexA], sortCSIb1[indexA + 1], "\033[0m")
+    for i in range(max(len(ruleStr1), len(ruleStr2))):
+        # 说明两个分段内的密钥长度不同，无法进行匹配（绿）
+        if len(ruleStr1[i]) != len(ruleStr2[i]):
+            print("\033[0;30;42m", i, list(sortCSIa1P[i * step: (i + 1) * step]), "\033[0m")
+            print("\033[0;30;42m", i, list(sortCSIa1[i * step: (i + 1) * step]), "\033[0m")
+            print("\033[0;30;42m", i, list(sortCSIb1[i * step: (i + 1) * step]), "\033[0m")
+            print("\033[0;30;42m", i, ruleStr1[i], "\033[0m")
+            print("\033[0;30;42m", i, ruleStr2[i], "\033[0m")
+            continue
+        for j in range(max(len(ruleStr1[i]), len(ruleStr2[i]))):
+            # 分段内某位密钥不匹配（红）
+            if ruleStr1[i][j] != ruleStr2[i][j]:
+                print("\033[0;30;41m", i, list(sortCSIa1P[i * step: (i + 1) * step]), "\033[0m")
+                print("\033[0;30;41m", i, list(sortCSIa1[i * step: (i + 1) * step]), "\033[0m")
+                print("\033[0;30;41m", i, list(sortCSIb1[i * step: (i + 1) * step]), "\033[0m")
+                print("\033[0;30;41m", i, ruleStr1[i], "\033[0m")
+                print("\033[0;30;41m", i, ruleStr2[i], "\033[0m")
+                break
+
+    ruleStr1 = "".join(ruleStr1)
+    ruleStr2 = "".join(ruleStr2)
+    ruleStr3 = "".join(ruleStr3)
+    ruleStr4 = "".join(ruleStr4)
+    alignStr1 = genAlign3(ruleStr1)
+    print("ruleStr1", len(ruleStr1), ruleStr1)
+    alignStr2 = genAlign3(ruleStr2)
+    print("ruleStr2", len(ruleStr2), ruleStr2)
+    alignStr3 = genAlign3(ruleStr3)
+    print("ruleStr3", len(ruleStr3), ruleStr3)
+    alignStr4 = genAlign3(ruleStr4)
 
     a_list = alignStr1
     b_list = alignStr2
@@ -477,7 +549,8 @@ for staInd in range(0, times * intvl + 1, intvl):
 
 # with open('../experiments/key.txt', 'a', ) as f:
 #     f.write(codings)
-print(maxDiffAB)
+
 print("a-b all", correctSum, "/", originSum, "=", correctSum / originSum)
 print("a-e all", randomSum, "/", originSum, "=", randomSum / originSum)
 print("a-n all", noiseSum, "/", originSum, "=", noiseSum / originSum)
+print(maxDiffAB)

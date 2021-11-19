@@ -54,6 +54,14 @@ def genRandomStep(len, lowBound, highBound):
     return randomStep
 
 
+# 数组第二维的所有内容求和
+def sumEachDim(list, index):
+    res = 0
+    for i in range(len(list[index])):
+        res += list[index][i]
+    return round(res, 8)
+
+
 isShow = False
 rawData = loadmat('../data/data_mobile_outdoor_1.mat')
 if not os.path.exists('./figures/'):
@@ -92,19 +100,19 @@ if isShow:
 else:
     plt.close()
 
-CSIa1Orig = smooth(CSIa1Orig, window_len=15, window='flat')
-CSIb1Orig = smooth(CSIb1Orig, window_len=15, window='flat')
-CSIe1Orig = smooth(CSIe1Orig, window_len=15, window="flat")
-CSIi10rig = smooth(CSIi10rig, window_len=15, window="flat")
+# 不进行平滑
+# CSIa1Orig = smooth(CSIa1Orig, window_len=15, window='flat')
+# CSIb1Orig = smooth(CSIb1Orig, window_len=15, window='flat')
+# CSIe1Orig = smooth(CSIe1Orig, window_len=15, window="flat")
+# CSIi10rig = smooth(CSIi10rig, window_len=15, window="flat")
 
-plt.figure()
-plt.plot(range(len(CSIa1Orig[0:30])), CSIa1Orig[0:30], color="cyan", linewidth=.5, label="CSIa1Orig smooth")
-plt.legend(loc='upper left')
-plt.savefig('./figures/CSIa1Orig-smooth.png')
-if isShow:
-    plt.show()
-else:
-    plt.close()
+# plt.figure()
+# plt.plot(range(len(CSIa1Orig)), CSIa1Orig, color="cyan", linewidth=.5, label="CSIa1Orig smooth")
+# plt.legend(loc='upper left')
+# if isShow:
+#     plt.show()
+# else:
+#     plt.close()
 
 CSIa1OrigBack = CSIa1Orig.copy()
 CSIb1OrigBack = CSIb1Orig.copy()
@@ -117,8 +125,8 @@ noiseAdd = np.random.normal(loc=0, scale=10, size=dataLen)  ## Addition item nor
 sft = 2
 intvl = 2 * sft + 1
 keyLen = 128
+segLen = 3
 addNoise = True
-opNums = keyLen
 rule = {'=': 0, '+': 1, '-': 3, '~': 2, '^': 3}
 # rule = {'=': 0, '+': 1, '-': 1, '~': 1, '^': 1}
 
@@ -233,16 +241,37 @@ for staInd in range(0, times * intvl + 1, intvl):
 
     # sortCSIa1是原始算法中排序前的数据
     # 防止对数的真数为0导致计算错误（不平滑的话没有这个问题）
-    # sortCSIa1 = np.log10(np.abs(sortCSIa1) + 0.01)
-    # sortCSIb1 = np.log10(np.abs(sortCSIb1) + 0.01)
-    # sortCSIe1 = np.log10(np.abs(sortCSIe1) + 0.01)
-    # sortNoise = np.log10(np.abs(sortNoise) + 0.01)
-    # sortCSIi1 = np.log10(np.abs(sortCSIi1) + 0.01)
-    sortCSIa1 = np.log10(np.abs(sortCSIa1))
-    sortCSIb1 = np.log10(np.abs(sortCSIb1))
-    sortCSIe1 = np.log10(np.abs(sortCSIe1))
-    sortNoise = np.log10(np.abs(sortNoise))
-    sortCSIi1 = np.log10(np.abs(sortCSIi1))
+    sortCSIa1 = np.log10(np.abs(sortCSIa1) + 0.01)
+    sortCSIb1 = np.log10(np.abs(sortCSIb1) + 0.01)
+    sortCSIe1 = np.log10(np.abs(sortCSIe1) + 0.01)
+    sortNoise = np.log10(np.abs(sortNoise) + 0.01)
+    sortCSIi1 = np.log10(np.abs(sortCSIi1) + 0.01)
+
+    # 取原数据的一部分来reshape
+    sortCSIa1Reshape = sortCSIa1[0:segLen * int(len(sortCSIa1) / segLen)]
+    sortCSIb1Reshape = sortCSIb1[0:segLen * int(len(sortCSIb1) / segLen)]
+    sortCSIe1Reshape = sortCSIe1[0:segLen * int(len(sortCSIe1) / segLen)]
+    sortNoiseReshape = sortNoise[0:segLen * int(len(sortNoise) / segLen)]
+    sortCSIi1Reshape = sortCSIi1[0:segLen * int(len(sortCSIi1) / segLen)]
+
+    sortCSIa1Reshape = sortCSIa1Reshape.reshape(int(len(sortCSIa1Reshape) / segLen), segLen)
+    sortCSIb1Reshape = sortCSIb1Reshape.reshape(int(len(sortCSIb1Reshape) / segLen), segLen)
+    sortCSIe1Reshape = sortCSIe1Reshape.reshape(int(len(sortCSIe1Reshape) / segLen), segLen)
+    sortNoiseReshape = sortNoiseReshape.reshape(int(len(sortNoiseReshape) / segLen), segLen)
+    sortCSIi1Reshape = sortCSIi1Reshape.reshape(int(len(sortCSIi1Reshape) / segLen), segLen)
+
+    sortCSIa1 = []
+    sortCSIb1 = []
+    sortCSIe1 = []
+    sortNoise = []
+    sortCSIi1 = []
+
+    for i in range(len(sortCSIa1Reshape)):
+        sortCSIa1.append(sumEachDim(sortCSIa1Reshape, i))
+        sortCSIb1.append(sumEachDim(sortCSIb1Reshape, i))
+        sortCSIe1.append(sumEachDim(sortCSIe1Reshape, i))
+        sortNoise.append(sumEachDim(sortNoiseReshape, i))
+        sortCSIi1.append(sumEachDim(sortCSIi1Reshape, i))
 
     plt.figure()
     plt.plot(range(len(sortCSIa1[0:10])), sortCSIa1[0:10], color="red", linewidth=.5, label="tmpCSIa1 segment log10")
@@ -252,6 +281,25 @@ for staInd in range(0, times * intvl + 1, intvl):
         plt.show()
     else:
         plt.close()
+
+    shuffleArray = list(range(len(sortCSIa1)))
+    CSIa1Back = []
+    CSIb1Back = []
+    CSIe1Back = []
+    CSIn1Back = []
+    random.shuffle(shuffleArray)
+    for i in range(len(sortCSIa1)):
+        CSIa1Back.append(sortCSIa1[shuffleArray[i]])
+    for i in range(len(sortCSIb1)):
+        CSIb1Back.append(sortCSIb1[shuffleArray[i]])
+    for i in range(len(sortCSIe1)):
+        CSIe1Back.append(sortCSIe1[shuffleArray[i]])
+    for i in range(len(sortNoise)):
+        CSIn1Back.append(sortNoise[shuffleArray[i]])
+    sortCSIa1 = CSIa1Back
+    sortCSIb1 = CSIb1Back
+    sortCSIe1 = CSIe1Back
+    sortNoise = CSIn1Back
 
     # 最后各自的密钥
     a_list = []
@@ -282,6 +330,9 @@ for staInd in range(0, times * intvl + 1, intvl):
 
     opIndex = []
     editOps = []
+    indices = []
+    diffAB = 0.2
+    insUpdBounds = 2
     for i in range(len(sortCSIa1)):
         editOps.append("=" + str(i))
     # sortCSIi1 = np.random.normal(loc=np.mean(sortCSIa1), scale=np.std(sortCSIa1, ddof=1), size=len(sortCSIa1))
@@ -316,7 +367,7 @@ for staInd in range(0, times * intvl + 1, intvl):
         index = random.randint(0, len(sortCSIa1P) - 1)
         if flag == 0:
             insertIndex = random.randint(0, len(sortCSIi1) - 1)
-            while math.fabs(sortCSIi1[insertIndex] - sortCSIa1P[index]) <= 2:
+            while math.fabs(sortCSIi1[insertIndex] - sortCSIa1P[index]) <= insUpdBounds:
                 insertIndex = random.randint(0, len(sortCSIi1) - 1)
             sortCSIa1P.insert(index, sortCSIi1[insertIndex])
             editOps.insert(index, "+" + str(index))
@@ -327,7 +378,7 @@ for staInd in range(0, times * intvl + 1, intvl):
             deleteNum += 1
         elif flag == 2:
             updateIndex = random.randint(0, len(sortCSIi1) - 1)
-            while math.fabs(sortCSIa1P[index] - sortCSIi1[updateIndex]) <= 2:
+            while math.fabs(sortCSIa1P[index] - sortCSIi1[updateIndex]) <= insUpdBounds:
                 updateIndex = random.randint(0, len(sortCSIi1) - 1)
             sortCSIa1P[index] = sortCSIi1[updateIndex]
             editOps[index] = "~" + str(index)
@@ -425,6 +476,18 @@ for staInd in range(0, times * intvl + 1, intvl):
             print("\033[0;30;42m", sortCSIa1[indexA - 1], sortCSIa1[indexA], sortCSIa1[indexA + 1], "\033[0m")
             print("\033[0;30;42m", sortCSIb1[indexA - 1], sortCSIb1[indexA], sortCSIb1[indexA + 1], "\033[0m")
 
+    ruleStr1 = "".join(ruleStr1)
+    ruleStr2 = "".join(ruleStr2)
+    ruleStr3 = "".join(ruleStr3)
+    ruleStr4 = "".join(ruleStr4)
+    alignStr1 = genAlign3(ruleStr1)
+    print("ruleStr1", len(ruleStr1), ruleStr1)
+    alignStr2 = genAlign3(ruleStr2)
+    print("ruleStr2", len(ruleStr2), ruleStr2)
+    alignStr3 = genAlign3(ruleStr3)
+    print("ruleStr3", len(ruleStr3), ruleStr3)
+    alignStr4 = genAlign3(ruleStr4)
+
     a_list = alignStr1
     b_list = alignStr2
     e_list = alignStr3
@@ -477,7 +540,44 @@ for staInd in range(0, times * intvl + 1, intvl):
 
 # with open('../experiments/key.txt', 'a', ) as f:
 #     f.write(codings)
-print(maxDiffAB)
+
 print("a-b all", correctSum, "/", originSum, "=", correctSum / originSum)
 print("a-e all", randomSum, "/", originSum, "=", randomSum / originSum)
 print("a-n all", noiseSum, "/", originSum, "=", noiseSum / originSum)
+print(maxDiffAB)
+# segLen = 1
+# a-b all 2620 / 2873 = 0.9119387399930386
+# a-e all 12 / 2873 = 0.004176818656456666
+# a-n all 15 / 2873 = 0.005221023320570832
+# segLen = 2
+# a-b all 1459 / 1547 = 0.9431157078215902
+# a-e all 45 / 1547 = 0.029088558500323207
+# a-n all 35 / 1547 = 0.02262443438914027
+# segLen = 3
+# a-b all 956 / 1015 = 0.941871921182266
+# a-e all 51 / 1015 = 0.05024630541871921
+# a-n all 50 / 1015 = 0.04926108374384237
+# segLen = 4
+# a-b all 802 / 809 = 0.9913473423980222
+# a-e all 36 / 809 = 0.04449938195302843
+# a-n all 38 / 809 = 0.04697156983930779
+# segLen = 5
+# a-b all 594 / 615 = 0.9658536585365853
+# a-e all 31 / 615 = 0.05040650406504065
+# a-n all 33 / 615 = 0.05365853658536585
+# segLen = 6
+# a-b all 559 / 559 = 1.0
+# a-e all 28 / 559 = 0.05008944543828265
+# a-n all 23 / 559 = 0.04114490161001789
+# segLen = 7
+# a-b all 446 / 446 = 1.0
+# a-e all 33 / 446 = 0.07399103139013453
+# a-n all 36 / 446 = 0.08071748878923767
+# segLen = 8
+# a-b all 420 / 422 = 0.995260663507109
+# a-e all 43 / 422 = 0.1018957345971564
+# a-n all 45 / 422 = 0.1066350710900474
+# segLen = 10
+# a-b all 319 / 319 = 1.0
+# a-e all 37 / 319 = 0.11598746081504702
+# a-n all 33 / 319 = 0.10344827586206896

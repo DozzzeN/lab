@@ -24,7 +24,38 @@ print("key", pow(2.0, i))
 
 keyLen = 128
 print(comb(keyLen * 4, keyLen) * comb(keyLen * 3, keyLen) * comb(keyLen * 2, keyLen) * comb(keyLen * 1, keyLen))
+print(comb(keyLen * 2, keyLen))
 print(perm(keyLen, keyLen))
+print(pow(2.0, keyLen))
+
+# 滑动窗口，有重叠
+# segLen = 3
+# keyLen = 256
+# L = int(keyLen / segLen)
+# guess = 0
+# guessTmp = 0
+# for i in range(1, L * segLen - segLen + 1 + 1):
+#     for j in range(1, i + 1):
+#         guessTmp += comb(i, j) * pow(4, i - j)
+#     guess += i * guessTmp
+# print("guess", guess)
+# print(pow(2.0, keyLen))
+# print(perm(keyLen, keyLen))
+
+# 滑动窗口，无重叠
+segLen = 3
+keyLen = 256
+L = int(keyLen / segLen)
+guess = 0
+guessTmp = 0
+for i in range(1, L + 1):
+    for j in range(1, i + 1):
+        guessTmp += comb(i, j) * pow(4, i - j)
+    guess += i * guessTmp
+print("guess", guess)
+print(pow(2.0, keyLen))
+print(perm(keyLen, keyLen))
+
 
 #
 # for i in range(1, 1000):
@@ -40,3 +71,9 @@ print(perm(keyLen, keyLen))
 def C2n_n(n):
     return math.factorial(2 * n) / pow(math.factorial(n), 2)
 
+print(pow(C2n_n(2), 128 / 4))
+print(pow(C2n_n(4), 128 / 8))
+print(pow(C2n_n(8), 128 / 16))
+print(pow(C2n_n(16), 128 / 32))
+print(pow(C2n_n(32), 128 / 64))
+print(C2n_n(64))
