@@ -1,12 +1,11 @@
-import math
 import random
-import sys
 
 import numpy as np
+from matplotlib import pyplot as plt
 from scipy import signal
 from scipy.io import loadmat
 
-from alignment import genAlign, alignFloat
+from alignment import genAlign, alignFloat, genLongestContinuous
 
 
 def smooth(x, window_len=11, window='hanning'):
@@ -53,22 +52,22 @@ def genRandomStep(len, lowBound, highBound):
     return randomStep
 
 
-# 将三维数组转为一维数组
-def toOneDim(list):
-    oneDim = []
-    for i in range(len(list)):
-        tmp = 0
-        for j in range(len(list[i])):
-            tmp += (list[i][j][0] + list[i][j][1])
-            # tmp += (list[i][j][0] * list[i][j][1])
-        oneDim.append(round(tmp, 10))
-    return oneDim
+rawData = loadmat('../data/data_static_indoor_1.mat')
 
+CSIa1OrigRaw = rawData['A'][:, 0]
+CSIb1OrigRaw = rawData['A'][:, 1]
 
-rawData = loadmat('../data/data_mobile_indoor_1.mat')
+CSIa1Orig = []
+CSIb1Orig = []
+for i in range(5):
+    CSIa1Orig.append(CSIa1OrigRaw[i])
+    CSIb1Orig.append(CSIb1OrigRaw[i])
+for i in range(7000):
+    CSIa1Orig.append(CSIa1OrigRaw[i + 20000])
+    CSIb1Orig.append(CSIb1OrigRaw[i + 20000])
 
-CSIa1Orig = rawData['A'][:, 0]
-CSIb1Orig = rawData['A'][:, 1]
+# CSIa1Orig = rawData['A'][:, 0]
+# CSIb1Orig = rawData['A'][:, 1]
 
 CSIa1Orig = np.array(CSIa1Orig)
 CSIb1Orig = np.array(CSIb1Orig)
@@ -76,6 +75,12 @@ CSIb1Orig = np.array(CSIb1Orig)
 dataLen = len(CSIa1Orig)  # 6745
 
 CSIe1Orig = np.random.normal(loc=np.mean(CSIa1Orig), scale=np.std(CSIa1Orig, ddof=1), size=dataLen)
+
+# plt.close()
+# plt.figure()
+# plt.plot(range(len(CSIa1Orig)), CSIa1Orig, color="blue", linewidth=.5, label="CSIa1Orig raw")
+# plt.legend(loc='upper left')
+# plt.show()
 
 CSIa1Orig = smooth(CSIa1Orig, window_len=15, window='flat')
 CSIb1Orig = smooth(CSIb1Orig, window_len=15, window='flat')
@@ -102,8 +107,15 @@ correctSum = 0
 randomSum = 0
 noiseSum = 0
 
+originWholeSum = 0
+correctWholeSum = 0
+randomWholeSum = 0
+noiseWholeSum = 0
+
 codings = ""
-for staInd in range(0, 10 * intvl + 1, intvl):
+times = 19
+maxDiffAB = 0
+for staInd in range(0, times * intvl + 1, intvl):
     endInd = staInd + keyLen * intvl
     print("range:", staInd, endInd)
     if endInd > len(CSIa1Orig):
@@ -128,12 +140,12 @@ for staInd in range(0, 10 * intvl + 1, intvl):
         2 * np.pi * 1 / intvl * np.linspace(0, np.pi * 0.5 * keyLen, keyLen * intvl))  ## Rectangular pulse
 
     if addNoise:
-        tmpCSIa1 = tmpPulse * (np.float_power(np.abs(tmpCSIa1), tmpNoise) * np.float_power(np.abs(tmpNoise), tmpCSIa1))
-        tmpCSIb1 = tmpPulse * (np.float_power(np.abs(tmpCSIb1), tmpNoise) * np.float_power(np.abs(tmpNoise), tmpCSIb1))
-        tmpCSIe1 = tmpPulse * (np.float_power(np.abs(tmpCSIe1), tmpNoise) * np.float_power(np.abs(tmpNoise), tmpCSIe1))
-        # tmpCSIa1 = tmpPulse * np.float_power(np.abs(tmpCSIa1), tmpNoise)
-        # tmpCSIb1 = tmpPulse * np.float_power(np.abs(tmpCSIb1), tmpNoise)
-        # tmpCSIe1 = tmpPulse * np.float_power(np.abs(tmpCSIe1), tmpNoise)
+        # tmpCSIa1 = tmpPulse * (np.float_power(np.abs(tmpCSIa1), tmpNoise) * np.float_power(np.abs(tmpNoise), tmpCSIa1))
+        # tmpCSIb1 = tmpPulse * (np.float_power(np.abs(tmpCSIb1), tmpNoise) * np.float_power(np.abs(tmpNoise), tmpCSIb1))
+        # tmpCSIe1 = tmpPulse * (np.float_power(np.abs(tmpCSIe1), tmpNoise) * np.float_power(np.abs(tmpNoise), tmpCSIe1))
+        tmpCSIa1 = tmpPulse * np.float_power(np.abs(tmpCSIa1), tmpNoise)
+        tmpCSIb1 = tmpPulse * np.float_power(np.abs(tmpCSIb1), tmpNoise)
+        tmpCSIe1 = tmpPulse * np.float_power(np.abs(tmpCSIe1), tmpNoise)
     else:
         tmpCSIa1 = tmpPulse * tmpCSIa1
         tmpCSIb1 = tmpPulse * tmpCSIb1
@@ -188,67 +200,13 @@ for staInd in range(0, 10 * intvl + 1, intvl):
     for i in range(len(sortCSIa1)):
         diffAB = max(diffAB, abs(sortCSIa1[i] - sortCSIb1[i]))
     print("最大差距", diffAB)
-
-    arrayIndexA = random.sample(range(len(sortCSIa1)), len(sortCSIa1))
-    allOpsIndexA = []
-    arrayIndexB = random.sample(range(len(sortCSIb1)), len(sortCSIb1))
-    allOpsIndexB = []
-    for i in range(opNums):
-        allOpsIndexA.append(random.uniform(min(sortCSIa1), max(sortCSIa1)))
-
-        # flag = random.randint(0, 2)
-        # if flag == 0:
-        #     allOpsIndexA.append(-1)
-        #     allOpsIndexB.append(-1)
-        # elif flag == 1:
-        #     allOpsIndexA.append(-2)
-        #     allOpsIndexB.append(-2)
-        # else:
-        #     allOpsIndexA.append(random.uniform(min(sortCSIa1), max(sortCSIa1)))
-        #     allOpsIndexB.append(random.uniform(min(sortCSIb1), max(sortCSIb1)))
-
-    # B的随机操作行为与A的不同
-    # for i in range(opNums):
-    #     arrayIndexB.append(random.randint(0, len(chrPB) - 1))
-    #     flag = random.randint(0, 2)
-    #     if flag == 0:
-    #         allOpsIndexB.append(-1)
-    #     elif flag == 1:
-    #         allOpsIndexB.append(-2)
-    #     else:
-    #         allOpsIndexB.append(random.randint(65, ord(maxChrB)))
+    maxDiffAB = max(maxDiffAB, diffAB)
+    arrayIndexA = random.sample(range(len(sortCSIa1)), opNums)
+    arrayIndexA.sort()
     sortCSIa1P = list(sortCSIa1)
-    sortCSIb1P = []
-    for i in range(opNums):
-        if arrayIndexA[i] < len(sortCSIa1P):
-            sortCSIa1P.remove(sortCSIa1P[arrayIndexA[i]])
-        else:
-            index = random.randint(0, len(sortCSIa1P) - 1)
-            sortCSIa1P.remove(sortCSIa1P[index])
-
-        # if allOpsIndexA[i] == -1:
-        #     sortCSIa1P = list(sortCSIa1)[:arrayIndexA[i]] + list(sortCSIa1)[arrayIndexA[i] + 1:]
-        # elif allOpsIndexA[i] == -2:
-        #     l = list(sortCSIa1)
-        #     if arrayIndexA[i] + 2 >= len(l):
-        #         continue
-        #     sortCSIa1P = l[:arrayIndexA[i]] + l[arrayIndexA[i] + 1:arrayIndexA[i] + 2] + \
-        #                l[arrayIndexA[i]:arrayIndexA[i] + 1] + l[min(len(l) - 1, arrayIndexA[i] + 2):]
-        # else:
-        #     sortCSIa1P = list(sortCSIa1)
-        #     sortCSIa1P.insert(arrayIndexA[i], allOpsIndexA[i])
-
-        # if allOpsIndexB[i] == -1:
-        #     sortCSIb1P = list(sortCSIb1)[:arrayIndexB[i]] + list(sortCSIb1)[arrayIndexB[i] + 1:]
-        # elif allOpsIndexB[i] == -2:
-        #     l = list(sortCSIb1)
-        #     if arrayIndexB[i] + 2 >= len(l):
-        #         continue
-        #     sortCSIb1P = l[:arrayIndexB[i]] + l[arrayIndexB[i] + 1:arrayIndexB[i] + 2] + \
-        #                l[arrayIndexB[i]:arrayIndexB[i] + 1] + l[min(len(l) - 1, arrayIndexB[i] + 2):]
-        # else:
-        #     sortCSIb1P = list(sortCSIb1)
-        #     sortCSIb1P.insert(arrayIndexB[i], allOpsIndexB[i])
+    # 从后往前删除
+    for i in range(opNums - 1, -1, -1):
+        sortCSIa1P.remove(sortCSIa1P[arrayIndexA[i]])
 
     print("sortCSIa1P", len(sortCSIa1P), sortCSIa1P)
     print("sortCSIa1", len(sortCSIa1), list(sortCSIa1))
@@ -257,7 +215,8 @@ for staInd in range(0, 10 * intvl + 1, intvl):
 
     # 用a1P匹配ai，得到rule，再用rule对其a1P
     # 密钥和sortCSIa1P相同
-    threshold = 2
+    threshold = 0.005
+    # threshold = diffAB
     ruleStr1 = alignFloat(rule, sortCSIa1P, sortCSIa1, threshold)
     alignStr1 = genAlign(ruleStr1)
     print("ruleStr1", ruleStr1)
@@ -270,15 +229,44 @@ for staInd in range(0, 10 * intvl + 1, intvl):
     ruleStr4 = alignFloat(rule, sortCSIa1P, sortNoise, threshold)
     alignStr4 = genAlign(ruleStr4)
 
+    # 检错
+    for i in range(min(len(ruleStr1), len(ruleStr2))):
+        if ruleStr1[i] != ruleStr2[i]:
+            if i >= len(sortCSIa1P):
+                continue
+            print("\033[0;30;41m", i, sortCSIa1P[i], "\033[0m")
+            print("\033[0;30;41m", i, sortCSIa1[i], abs(sortCSIa1P[i] - sortCSIa1[i]), "\033[0m")
+            print("\033[0;30;41m", i, sortCSIb1[i], abs(sortCSIa1P[i] - sortCSIb1[i]), "\033[0m")
+            print("\033[0;30;41m", i, ruleStr1[i], "\033[0m")
+            print("\033[0;30;41m", i, ruleStr2[i], "\033[0m")
+
     a_list = alignStr1
     b_list = alignStr2
     e_list = alignStr3
     n_list = alignStr4
 
+    # range(len(sortCSIa1))中有而arrayIndexA没有的就是最后相等的位置（密钥）
+    editOps = list(set(range(len(sortCSIa1))).difference(set(arrayIndexA)))
+    print("editOps", len(editOps), editOps)
     print("keys of a:", len(a_list), a_list)
     print("keys of b:", len(b_list), b_list)
     print("keys of e:", len(e_list), e_list)
     print("keys of n:", len(n_list), n_list)
+
+    # a和aP进行匹配
+    for i in range(min(len(a_list), len(editOps))):
+        if a_list[i] != editOps[i]:
+            if i >= len(sortCSIa1P):
+                continue
+            print("\033[0;30;42m", i, sortCSIa1P[i], "\033[0m")
+            print("\033[0;30;42m", i, sortCSIa1[i], "\033[0m")
+            print("\033[0;30;42m", i, a_list[i], "\033[0m")
+            print("\033[0;30;42m", i, editOps[i], "\033[0m")
+
+    print("longest numbers of a:", genLongestContinuous(a_list))
+    print("longest numbers of b:", genLongestContinuous(b_list))
+    print("longest numbers of e:", genLongestContinuous(e_list))
+    print("longest numbers of n:", genLongestContinuous(n_list))
 
     sum1 = min(len(a_list), len(b_list))
     sum2 = 0
@@ -291,7 +279,10 @@ for staInd in range(0, 10 * intvl + 1, intvl):
     for i in range(min(len(a_list), len(n_list))):
         sum4 += (a_list[i] == n_list[i])
 
-    print("\033[0;32;40ma-b", sum2, sum2 / sum1, "\033[0m")
+    if sum2 == sum1:
+        print("\033[0;32;40ma-b", sum2, sum2 / sum1, "\033[0m")
+    else:
+        print("\033[0;31;40ma-b", sum2, sum2 / sum1, "\033[0m")
     print("a-e", sum3, sum3 / sum1)
     print("a-n", sum4, sum4 / sum1)
     print("----------------------")
@@ -300,21 +291,14 @@ for staInd in range(0, 10 * intvl + 1, intvl):
     randomSum += sum3
     noiseSum += sum4
 
-    # 编码密钥
-    # char_weights = []
-    # weights = Counter(a_list)  # 得到list中元素出现次数
-    # for i in range(len(a_list)):
-    #     char_weights.append((a_list[i], weights[a_list[i]]))
-    # tree = HuffmanTree(char_weights)
-    # tree.get_code()
-    # HuffmanTree.codings += "\n"
-
-    # for i in range(len(a_list)):
-    #     codings += bin(a_list[i]) + "\n"
-
-with open('../experiments/key.txt', 'a', ) as f:
-    f.write(codings)
-
+    originWholeSum += 1
+    correctWholeSum = correctWholeSum + 1 if sum2 == sum1 else correctWholeSum
+    randomWholeSum = randomWholeSum + 1 if sum3 == sum1 else randomWholeSum
+    noiseWholeSum = noiseWholeSum + 1 if sum4 == sum1 else noiseWholeSum
+print(maxDiffAB)
 print("a-b all", correctSum, "/", originSum, "=", correctSum / originSum)
 print("a-e all", randomSum, "/", originSum, "=", randomSum / originSum)
 print("a-n all", noiseSum, "/", originSum, "=", noiseSum / originSum)
+print("a-b whole match", correctWholeSum, "/", originWholeSum, "=", correctWholeSum / originWholeSum)
+print("a-e whole match", randomWholeSum, "/", originWholeSum, "=", randomWholeSum / originWholeSum)
+print("a-n whole match", noiseWholeSum, "/", originWholeSum, "=", noiseWholeSum / originWholeSum)

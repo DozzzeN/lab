@@ -127,8 +127,13 @@ correctSum = 0
 randomSum = 0
 noiseSum = 0
 
+originWholeSum = 0
+correctWholeSum = 0
+randomWholeSum = 0
+noiseWholeSum = 0
+
 codings = ""
-times = 10
+times = 19
 maxDiffAB = 0
 for staInd in range(0, times * intvl + 1, intvl):
     endInd = staInd + keyLen * intvl
@@ -282,8 +287,9 @@ for staInd in range(0, times * intvl + 1, intvl):
 
     opIndex = []
     editOps = []
-    for i in range(len(sortCSIa1)):
-        editOps.append("=" + str(i))
+    indices = []
+    # for i in range(len(sortCSIa1)):
+    #     editOps.append("=" + str(i))
     # sortCSIi1 = np.random.normal(loc=np.mean(sortCSIa1), scale=np.std(sortCSIa1, ddof=1), size=len(sortCSIa1))
     # sortCSIi1 = np.random.uniform(min(sortCSIa1), max(sortCSIa1), len(sortCSIa1))
     for i in range(opNums):
@@ -313,31 +319,35 @@ for staInd in range(0, times * intvl + 1, intvl):
         #     swapNum += 1
 
         flag = random.randint(0, 3)
+        # 不重复编辑同一个元素
         index = random.randint(0, len(sortCSIa1P) - 1)
+        while index in indices:
+            index = random.randint(0, len(sortCSIa1P) - 1)
+        indices.append(index)
         if flag == 0:
             insertIndex = random.randint(0, len(sortCSIi1) - 1)
-            while math.fabs(sortCSIi1[insertIndex] - sortCSIa1P[index]) <= 2:
-                insertIndex = random.randint(0, len(sortCSIi1) - 1)
             sortCSIa1P.insert(index, sortCSIi1[insertIndex])
-            editOps.insert(index, "+" + str(index))
+            editOps.append("+" + str(index))
             insertNum += 1
         elif flag == 1:
             sortCSIa1P.remove(sortCSIa1P[index])
-            editOps[index] = "-" + str(index)
+            editOps.append("-" + str(index))
             deleteNum += 1
         elif flag == 2:
             updateIndex = random.randint(0, len(sortCSIi1) - 1)
-            while math.fabs(sortCSIa1P[index] - sortCSIi1[updateIndex]) <= 2:
-                updateIndex = random.randint(0, len(sortCSIi1) - 1)
             sortCSIa1P[index] = sortCSIi1[updateIndex]
-            editOps[index] = "~" + str(index)
+            editOps.append("~" + str(index))
             updateNum += 1
         elif flag == 3:
+            indices.pop()
             swapIndex = random.randrange(0, len(sortCSIa1P) - 1, 2)
+            while swapIndex in indices:
+                swapIndex = random.randrange(0, len(sortCSIa1P) - 1, 2)
+            indices.append(swapIndex)
             tmp = sortCSIa1P[swapIndex]
             sortCSIa1P[swapIndex] = sortCSIa1P[swapIndex + 1]
             sortCSIa1P[swapIndex + 1] = tmp
-            editOps[swapIndex] = "^" + str(index)
+            editOps.append("^" + str(swapIndex))
             swapNum += 1
 
     print("numbers of insert:", insertNum)
@@ -463,21 +473,14 @@ for staInd in range(0, times * intvl + 1, intvl):
     randomSum += sum3
     noiseSum += sum4
 
-    # 编码密钥
-    # char_weights = []
-    # weights = Counter(a_list)  # 得到list中元素出现次数
-    # for i in range(len(a_list)):
-    #     char_weights.append((a_list[i], weights[a_list[i]]))
-    # tree = HuffmanTree(char_weights)
-    # tree.get_code()
-    # HuffmanTree.codings += "\n"
-
-    # for i in range(len(a_list)):
-    #     codings += bin(a_list[i]) + "\n"
-
-# with open('../experiments/key.txt', 'a', ) as f:
-#     f.write(codings)
+    originWholeSum += 1
+    correctWholeSum = correctWholeSum + 1 if sum2 == sum1 else correctWholeSum
+    randomWholeSum = randomWholeSum + 1 if sum3 == sum1 else randomWholeSum
+    noiseWholeSum = noiseWholeSum + 1 if sum4 == sum1 else noiseWholeSum
 print(maxDiffAB)
 print("a-b all", correctSum, "/", originSum, "=", correctSum / originSum)
 print("a-e all", randomSum, "/", originSum, "=", randomSum / originSum)
 print("a-n all", noiseSum, "/", originSum, "=", noiseSum / originSum)
+print("a-b whole match", correctWholeSum, "/", originWholeSum, "=", correctWholeSum / originWholeSum)
+print("a-e whole match", randomWholeSum, "/", originWholeSum, "=", randomWholeSum / originWholeSum)
+print("a-n whole match", noiseWholeSum, "/", originWholeSum, "=", noiseWholeSum / originWholeSum)

@@ -353,7 +353,7 @@ for staInd in range(0, times * intvl + 1, intvl):
             sortCSIa1P.remove(sortCSIa1P[index])
             editOps.append("-" + str(index))
             deleteNum += 1
-        elif flag == insUpdBounds:
+        elif flag == 2:
             updateIndex = 0
             condition = True
             segmentIndex = int(index / step)
