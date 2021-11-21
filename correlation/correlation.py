@@ -1,6 +1,7 @@
 from random import shuffle
 
 import numpy as np
+import scipy.spatial.distance
 from scipy.spatial.distance import cosine
 from scipy.spatial.distance import euclidean
 from scipy.stats import pearsonr
@@ -40,7 +41,7 @@ c12 = cosine(x1, x2)
 c13 = cosine(x1, x3)
 c23 = cosine(x2, x3)
 
-print("p144:", p144, "p14:", p14, "p14:", p15)
+print("p144:", p144, "p14:", p14, "p15:", p15)
 print('pearson:', np.round(p12, decimals=4), np.round(p13, decimals=4), np.round(p23, decimals=4))
 print('cos:', np.round(c12, decimals=4), np.round(c13, decimals=4), np.round(c23, decimals=4))
 print('euclidean sq:', np.round(d12, decimals=4), np.round(d13, decimals=4), np.round(d23, decimals=4))

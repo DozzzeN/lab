@@ -1,6 +1,8 @@
 import sys
-
 from math import fabs
+
+import numpy as np
+import numpy.linalg
 
 
 def genAlign(base):
@@ -396,6 +398,176 @@ def alignFloatInsDel(score, arrayA, arrayB, threshold):
     for i in range(1, m + 1):
         for j in range(1, n + 1):
             if equal(arrayA[i - 1], arrayB[j - 1]):
+                aux[i][j] = aux[i - 1][j - 1] + score["="]
+                rule[i][j] = rule[i - 1][j - 1] + "="
+            else:
+                aux[i][j] = min(aux[i - 1][j] + score["-"], aux[i][j - 1] + score["+"])
+                if aux[i][j] == aux[i - 1][j] + score["-"]:
+                    rule[i][j] = rule[i - 1][j] + "-"
+                elif aux[i][j] == aux[i][j - 1] + score["+"]:
+                    rule[i][j] = rule[i][j - 1] + "+"
+    # print("score", aux[m][n])
+    return rule[m][n]
+
+
+def absolute(f1, f2):
+    res = 0
+    for i in range(len(f1)):
+        res += fabs(f1 - f2)
+    return res / len(f1)
+
+
+# def euclidean(f1, f2):
+#     return np.linalg.norm(np.array(f1) - np.array(f2))
+
+
+def manhattan(f1, f2):
+    return np.linalg.norm(np.array(f1) - np.array(f2), ord=1)
+
+
+# def chebyshev(f1, f2):
+#     return np.linalg.norm(np.array(f1) - np.array(f2), ord=np.inf)
+
+
+def cosine(f1, f2):
+    v1 = np.array(f1)
+    v2 = np.array(f2)
+    m = np.linalg.norm(v1) * (np.linalg.norm(v2))
+    if m == 0:
+        return 0
+    else:
+        return np.dot(v1, v2) / m
+
+
+def correlation(f1, f2):
+    n = len(f1)
+    v1 = np.array(f1)
+    v2 = np.array(f2)
+    sum_xy = np.sum(np.sum(v1 * v2))
+    sum_x = np.sum(np.sum(v1))
+    sum_y = np.sum(np.sum(v2))
+    sum_x2 = np.sum(np.sum(v1 * v1))
+    sum_y2 = np.sum(np.sum(v2 * v2))
+    m = np.sqrt((n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y))
+    if m == 0:
+        return 1
+    else:
+        return 1 - (n * sum_xy - sum_x * sum_y) / m
+
+
+def dtw(a, b):
+    dis = np.full((len(a) + 1, len(b) + 1), np.inf)
+    dis[0, 0] = 0
+    for i in range(0, len(a)):
+        for j in range(0, len(b)):
+            dis[i + 1, j + 1] = (a[i] - b[j]) ** 2
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            dis[i, j] = min(dis[i - 1, j - 1], dis[i, j - 1], dis[i - 1, j]) + dis[i, j]
+    result = dis[len(a) - 1, len(b) - 1] / (len(a) + len(b))
+    return result
+
+
+def alignFloatInsDelWithMetrics(score, arrayA, arrayB, threshold, metrics):
+    # threshold = max(2, second_diffAB)
+    # print("阈值", threshold)
+
+    m = len(arrayA)
+    n = len(arrayB)
+
+    # sortA = arrayA.copy()
+    # sortB = arrayB.copy()
+    # sortA.sort()
+    # sortB.sort()
+    # diffA = sys.maxsize
+    # diffB = sys.maxsize
+    # second_diffA = sys.maxsize
+    # second_diffB = sys.maxsize
+    # diffAB = sys.maxsize
+    # second_diffAB = sys.maxsize
+    # for i in range(m - 1):
+    #     diff = abs(sortA[i] - sortA[i + 1])
+    #     if second_diffA > diff:
+    #         if diffA < diff:
+    #             second_diffA = diff
+    #         else:
+    #             second_diffA = diffA
+    #             diffA = diff
+    # for i in range(n - 1):
+    #     diff = abs(sortB[i] - sortB[i + 1])
+    #     if second_diffB > diff:
+    #         if diffB < diff:
+    #             second_diffB = diff
+    #         else:
+    #             second_diffB = diffB
+    #             diffB = diff
+    # for i in range(min(m, n)):
+    #     diff = abs(sortA[i] - sortB[i])
+    #     if second_diffAB > diff:
+    #         if diffAB < diff:
+    #             second_diffAB = diff
+    #         else:
+    #             second_diffAB = diffAB
+    #             diffAB = diff
+    # print("min diff of A        ", diffA)
+    # print("min diff of B        ", diffB)
+    # print("min diff of AB       ", diffAB)
+    # print("second min diff of A ", second_diffA)
+    # print("second min diff of B ", second_diffB)
+    # print("second min diff of AB", second_diffAB)
+
+    # diffA = 0
+    # diffB = 0
+    # second_diffA = 0
+    # second_diffB = 0
+    # diffAB = 0
+    # second_diffAB = 0
+    # for i in range(m - 1):
+    #     diff = abs(sortA[i] - sortA[i + 1])
+    #     if second_diffA < diff:
+    #         if diffA > diff:
+    #             second_diffA = diff
+    #         else:
+    #             second_diffA = diffA
+    #             diffA = diff
+    # for i in range(n - 1):
+    #     diff = abs(sortB[i] - sortB[i + 1])
+    #     if second_diffB < diff:
+    #         if diffB > diff:
+    #             second_diffB = diff
+    #         else:
+    #             second_diffB = diffB
+    #             diffB = diff
+    # for i in range(min(m, n)):
+    #     diff = abs(sortA[i] - sortB[i])
+    #     if second_diffAB < diff:
+    #         if diffAB > diff:
+    #             second_diffAB = diff
+    #         else:
+    #             second_diffAB = diffAB
+    #             diffAB = diff
+    # print("max diff of A        ", diffA)
+    # print("max diff of B        ", diffB)
+    # print("max diff of AB       ", diffAB)
+    # print("second max diff of A ", second_diffA)
+    # print("second max diff of B ", second_diffB)
+    # print("second max diff of AB", second_diffAB)
+
+    aux = [[]] * (m + 1)
+    rule = [[]] * (m + 1)
+    for i in range(len(aux)):
+        aux[i] = [0] * (n + 1)
+        rule[i] = [""] * (n + 1)
+    rule[0][0] = ""
+    for i in range(1, m + 1):
+        rule[i][0] = rule[i - 1][0] + "-"
+        aux[i][0] = aux[i - 1][0] + score["-"]
+    for i in range(1, n + 1):
+        rule[0][i] = rule[0][i - 1] + "+"
+        aux[0][i] = aux[0][i - 1] + score["+"]
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if metrics(arrayA[i - 1], arrayB[j - 1]) <= threshold:
                 aux[i][j] = aux[i - 1][j - 1] + score["="]
                 rule[i][j] = rule[i - 1][j - 1] + "="
             else:
