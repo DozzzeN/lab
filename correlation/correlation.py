@@ -5,6 +5,7 @@ import scipy.spatial.distance
 from scipy.spatial.distance import cosine
 from scipy.spatial.distance import euclidean
 from scipy.stats import pearsonr
+import pandas as pd
 
 # https://www.zhihu.com/question/19734616
 # 0.8-1.0 极强相关
@@ -28,6 +29,10 @@ x5 = np.array(x1) + gauss
 p12 = pearsonr(x1, x2)[0]
 p13 = pearsonr(x1, x3)[0]
 p23 = pearsonr(x2, x3)[0]
+
+print(pd.Series(x1).corr(pd.Series(x2)))
+print(pd.Series(x1).corr(pd.Series(x3)))
+print(pd.Series(x2).corr(pd.Series(x3)))
 
 p144 = pearsonr(x4, gauss)[0]
 p14 = pearsonr(np.log(np.abs(x4)), np.log(np.abs(gauss)))[0]

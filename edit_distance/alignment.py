@@ -24,7 +24,7 @@ def genAlign(base):
             updNum += 1
         elif base[i] == "^":
             swpNum += 1
-    print("equalNum:", equalNum, "insNum:", insNum, "delNum:", delNum, "updNum:", updNum, "swpNum:", swpNum)
+    # print("equalNum:", equalNum, "insNum:", insNum, "delNum:", delNum, "updNum:", updNum, "swpNum:", swpNum)
     return align
 
 
@@ -413,7 +413,7 @@ def alignFloatInsDel(score, arrayA, arrayB, threshold):
 def absolute(f1, f2):
     res = 0
     for i in range(len(f1)):
-        res += fabs(f1 - f2)
+        res += fabs(f1[i] - f2[i])
     return res / len(f1)
 
 
