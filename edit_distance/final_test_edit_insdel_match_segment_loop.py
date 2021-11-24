@@ -1,12 +1,9 @@
-import os
 import random
 
 import numpy as np
-from matplotlib import pyplot as plt
 from scipy import signal
 from scipy.io import loadmat
 from scipy.spatial.distance import euclidean, chebyshev
-from scipy.stats import pearsonr
 from sklearn import preprocessing
 
 from alignment import genAlign, alignFloatInsDelWithMetrics, absolute, cosine, dtw, manhattan, correlation
@@ -57,9 +54,9 @@ def genRandomStep(len, lowBound, highBound):
 
 
 isShow = False
-rawData = loadmat('../data/data_static_indoor_1.mat')
-if not os.path.exists('./figures/'):
-    os.mkdir('./figures/')
+fileName = "../data/data_static_outdoor_1.mat"
+rawData = loadmat(fileName)
+csv = open("./res.csv", "a+")
 
 # CSIa1OrigRaw = rawData['A'][:, 0]
 # CSIb1OrigRaw = rawData['A'][:, 1]
@@ -74,48 +71,35 @@ if not os.path.exists('./figures/'):
 #     CSIb1Orig.append(CSIb1OrigRaw[i + 20000])
 CSIa1Orig = rawData['A'][:, 0]
 CSIb1Orig = rawData['A'][:, 1]
-CSIi10rig = loadmat('../data/data_mobile_outdoor_2.mat')['A'][:, 0]
+CSIi10rig = loadmat('../data/data_static_indoor_1.mat')['A'][:, 0]
+
+dataLen = len(CSIa1Orig)  # 6745
 
 CSIa1Orig = np.array(CSIa1Orig)
 CSIb1Orig = np.array(CSIb1Orig)
 CSIi10rig = np.array(CSIi10rig)
-
-dataLen = len(CSIa1Orig)  # 6745
-
+CSIn10rig = np.random.normal(loc=-1, scale=1, size=dataLen)  ## Multiplication item normal distribution
 CSIe1Orig = np.random.normal(loc=np.mean(CSIa1Orig), scale=np.std(CSIa1Orig, ddof=1), size=dataLen)
-
-plt.close()
-plt.figure()
-plt.plot(range(len(CSIa1Orig[0:30])), CSIa1Orig[0:30], color="blue", linewidth=.5, label="CSIa1Orig raw")
-plt.legend(loc='upper left')
-plt.savefig('./figures/CSIa1Orig-raw.png')
-if isShow:
-    plt.show()
-else:
-    plt.close()
-
-# 不进行平滑
-# CSIa1Orig = smooth(CSIa1Orig, window_len=15, window='flat')
-# CSIb1Orig = smooth(CSIb1Orig, window_len=15, window='flat')
-# CSIe1Orig = smooth(CSIe1Orig, window_len=15, window="flat")
-# CSIi10rig = smooth(CSIi10rig, window_len=15, window="flat")
 
 CSIa1OrigBack = CSIa1Orig.copy()
 CSIb1OrigBack = CSIb1Orig.copy()
 CSIe1OrigBack = CSIe1Orig.copy()
 CSIi1OrigBack = CSIi10rig.copy()
-
-CSIn10rig = np.random.normal(loc=-1, scale=1, size=dataLen)  ## Multiplication item normal distribution
 CSIn10rigBack = CSIn10rig.copy()
 
 sft = 2
 intvl = 2 * sft + 1
 keyLen = 128
+csv.write("\n")
+csv.write("filename," + "times," + "threshold," + "segLen," + "maxDiffAB," +
+          "correctBitRate," + "randomBitRate," + "noiseBitRate," +
+          "correctWholeRate," + "randomWholeRate," + "noiseWholeRate\n")
+
 for segLen in range(2, 11):
     print("segLen", segLen)
-    addNoise = True
+    addNoise = False
     metrics = [absolute, euclidean, manhattan, chebyshev, cosine, dtw, correlation]
-    metric = metrics[6]
+    metric = metrics[0]
     rule = {'=': 0, '+': 1, '-': 1}
 
     originSum = 0
@@ -129,13 +113,19 @@ for segLen in range(2, 11):
     noiseWholeSum = 0
 
     codings = ""
-    times = 9
+    times = 0
     maxDiffAB = 0
-    for staInd in range(0, times * intvl + 1, intvl):
+
+    # 不同的距离函数对应着不同的阈值
+    # WITHOUT NOISE
+    threshold = 0.06  # absolute
+    # threshold = diffAB
+    for staInd in range(0, len(CSIa1Orig), keyLen * intvl):
         endInd = staInd + keyLen * intvl
         print("range:", staInd, endInd)
-        if endInd > len(CSIa1Orig):
+        if endInd >= len(CSIa1Orig):
             break
+        times += 1
 
         CSIa1Orig = CSIa1OrigBack.copy()
         CSIb1Orig = CSIb1OrigBack.copy()
@@ -148,15 +138,6 @@ for segLen in range(2, 11):
         tmpCSIe1 = CSIe1Orig[range(staInd, endInd, 1)]
         tmpCSIi1 = CSIi1Orig[range(staInd, endInd, 1)]
         tmpNoise = CSIn10rig[range(staInd, endInd, 1)]
-
-        plt.figure()
-        plt.plot(range(len(tmpCSIa1[0:10])), tmpCSIa1[0:10], color="black", linewidth=.5, label="tmpCSIa1 segment")
-        plt.legend(loc='upper left')
-        plt.savefig('./figures/tmpCSIa1-segment-' + str(staInd) + '.png')
-        if isShow:
-            plt.show()
-        else:
-            plt.close()
 
         tmpCSIa1 = tmpCSIa1 - (np.mean(tmpCSIa1) - np.mean(tmpCSIb1))  # Mean value consistency
 
@@ -180,16 +161,6 @@ for segLen in range(2, 11):
             tmpCSIe1 = tmpPulse * tmpCSIe1
             tmpCSIi1 = tmpPulse * tmpCSIi1
 
-        plt.figure()
-        plt.plot(range(len(tmpCSIa1[0:10])), tmpCSIa1[0:10], color="green", linewidth=.5,
-                 label="tmpCSIa1 segment add noise")
-        plt.legend(loc='upper left')
-        plt.savefig('./figures/tmpCSIa1-segment-add-noise-' + str(staInd) + '.png')
-        if isShow:
-            plt.show()
-        else:
-            plt.close()
-
         CSIa1Orig[range(staInd, endInd, 1)] = tmpCSIa1
         CSIb1Orig[range(staInd, endInd, 1)] = tmpCSIb1
         CSIe1Orig[range(staInd, endInd, 1)] = tmpCSIe1
@@ -205,6 +176,7 @@ for segLen in range(2, 11):
         sortNoise = np.zeros(permLen)
         sortCSIi1 = np.zeros(permLen)
 
+        # 求平均的好处的不同分段长度的测试可以都用同一个threshold
         for ii in range(permLen):
             aIndVec = np.array([aa for aa in range(origInd[ii], origInd[ii] + intvl, 1)])  ## for non-permuted CSIa1
 
@@ -222,17 +194,6 @@ for segLen in range(2, 11):
                 sortCSIe1[jj - permLen] = np.mean(CSIe1Tmp)
                 sortCSIi1[jj - permLen] = np.mean(CSIi1Tmp)
                 sortNoise[ii - permLen] = np.mean(CSIn1Tmp)
-
-        plt.figure()
-        plt.plot(range(len(sortCSIa1[0:10])), sortCSIa1[0:10], color="blue", linewidth=.5,
-                 label="tmpCSIa1 segment mean")
-        plt.legend(loc='upper left')
-        plt.savefig('./figures/tmpCSIa1-segment-mean-' + str(staInd) + '.png')
-        if isShow:
-            plt.show()
-        else:
-            plt.close()
-
         # sortCSIa1是原始算法中排序前的数据
         # 防止对数的真数为0导致计算错误（不平滑的话没有这个问题）
         sortCSIa1 = np.log10(np.abs(sortCSIa1) + 0.1)
@@ -247,13 +208,8 @@ for segLen in range(2, 11):
         # 0.4-0.6 中等程度相关
         # 0.2-0.4 弱相关
         # 0.0-0.2 极弱相关或无相关
-        # plt.figure()
-        # plt.plot(range(len(sortCSIa1[0:10])), sortCSIa1[0:10], color="blue", linewidth=.5, label="sortCSIa1")
-        # plt.plot(range(len(sortNoise[0:10])), sortNoise[0:10], color="red", linewidth=.5, label="sortNoise")
-        # plt.legend(loc='upper left')
-        # plt.show()
-        corCSIa1 = pearsonr(sortCSIa1, sortNoise)[0]
-        print("\033[0;30;42mcorCSIa1:", corCSIa1, "\033[0m")
+        # corCSIa1 = pearsonr(sortCSIa1, sortNoise)[0]
+        # print("\033[0;30;42mcorCSIa1:", corCSIa1, "\033[0m")
 
         # 取原数据的一部分来reshape
         sortCSIa1Reshape = sortCSIa1[0:segLen * int(len(sortCSIa1) / segLen)]
@@ -275,34 +231,34 @@ for segLen in range(2, 11):
         sortCSIi1 = []
 
         # 测试相关性
-        corCSIa1 = []
-        for i in range(len(sortCSIa1Reshape)):
-            if np.std(sortCSIa1Reshape[i]) == 0 or np.std(sortNoiseReshape[i]) == 0:
-                corCSIa1.append(0)
-            else:
-                corCSIa1.append(pearsonr(sortCSIa1Reshape[i], sortNoiseReshape[i])[0])
-        corCSIa1.sort()
-        correlated = 0
-        for i in range(len(corCSIa1)):
-            if abs(corCSIa1[i]) >= 0.8:
-                correlated += 1
-        print("\033[0;30;42mcorCSIa1:", len(corCSIa1), corCSIa1, "\033[0m")
-        print("\033[0;30;42mcorCSIa1:", correlated, correlated / len(corCSIa1), "\033[0m")
+        # corCSIa1 = []
+        # for i in range(len(sortCSIa1Reshape)):
+        #     if np.std(sortCSIa1Reshape[i]) == 0 or np.std(sortNoiseReshape[i]) == 0:
+        #         corCSIa1.append(0)
+        #     else:
+        #         corCSIa1.append(pearsonr(sortCSIa1Reshape[i], sortNoiseReshape[i])[0])
+        # corCSIa1.sort()
+        # correlated = 0
+        # for i in range(len(corCSIa1)):
+        #     if abs(corCSIa1[i]) >= 0.8:
+        #         correlated += 1
+        # print("\033[0;30;42mcorCSIa1:", len(corCSIa1), corCSIa1, "\033[0m")
+        # print("\033[0;30;42mcorCSIa1:", correlated, correlated / len(corCSIa1), "\033[0m")
 
-        corCSIa1 = []
-        for i in range(len(sortCSIa1Reshape)):
-            for j in range(len(sortNoiseReshape)):
-                if np.std(sortCSIa1Reshape[i]) == 0 or np.std(sortNoiseReshape[j]) == 0:
-                    corCSIa1.append(0)
-                else:
-                    corCSIa1.append(pearsonr(sortCSIa1Reshape[i], sortNoiseReshape[j])[0])
-        corCSIa1.sort()
-        correlated = 0
-        for i in range(len(corCSIa1)):
-            if abs(corCSIa1[i]) >= 0.8:
-                correlated += 1
-        print("\033[0;30;42mcorCSIa1:", len(corCSIa1), corCSIa1, "\033[0m")
-        print("\033[0;30;42mcorCSIa1:", correlated, correlated / len(corCSIa1), "\033[0m")
+        # corCSIa1 = []
+        # for i in range(len(sortCSIa1Reshape)):
+        #     for j in range(len(sortNoiseReshape)):
+        #         if np.std(sortCSIa1Reshape[i]) == 0 or np.std(sortNoiseReshape[j]) == 0:
+        #             corCSIa1.append(0)
+        #         else:
+        #             corCSIa1.append(pearsonr(sortCSIa1Reshape[i], sortNoiseReshape[j])[0])
+        # corCSIa1.sort()
+        # correlated = 0
+        # for i in range(len(corCSIa1)):
+        #     if abs(corCSIa1[i]) >= 0.8:
+        #         correlated += 1
+        # print("\033[0;30;42mcorCSIa1:", len(corCSIa1), corCSIa1, "\033[0m")
+        # print("\033[0;30;42mcorCSIa1:", correlated, correlated / len(corCSIa1), "\033[0m")
 
         # 归一化
         for i in range(len(sortCSIa1Reshape)):
@@ -377,87 +333,40 @@ for segLen in range(2, 11):
                 sortCSIa1P.remove(sortCSIa1P[editOps[i]])
                 deleteNum += 1
 
-            # 测试相关性
-            corCSIa1P = []
-            for i in range(min(len(sortNoise), len(sortCSIa1P))):
-                if np.std(sortCSIa1P[i]) == 0 or np.std(sortNoise[i]) == 0:
-                    corCSIa1P.append(0)
-                else:
-                    corCSIa1P.append(pearsonr(sortCSIa1P[i], sortNoise[i])[0])
-            corCSIa1P.sort()
-            correlated = 0
-            for i in range(len(corCSIa1P)):
-                if abs(corCSIa1P[i]) >= 0.8:
-                    correlated += 1
-            print("\033[0;30;42mcorCSIa1P:", len(corCSIa1P), corCSIa1P, "\033[0m")
-            print("\033[0;30;42mcorCSIa1P:", correlated, correlated / len(corCSIa1P), "\033[0m")
+        # 测试相关性
+        # corCSIa1P = []
+        # for i in range(min(len(sortNoise), len(sortCSIa1P))):
+        #     if np.std(sortCSIa1P[i]) == 0 or np.std(sortNoise[i]) == 0:
+        #         corCSIa1P.append(0)
+        #     else:
+        #         corCSIa1P.append(pearsonr(sortCSIa1P[i], sortNoise[i])[0])
+        # corCSIa1P.sort()
+        # correlated = 0
+        # for i in range(len(corCSIa1P)):
+        #     if abs(corCSIa1P[i]) >= 0.8:
+        #         correlated += 1
+        # print("\033[0;30;42mcorCSIa1P:", len(corCSIa1P), corCSIa1P, "\033[0m")
+        # print("\033[0;30;42mcorCSIa1P:", correlated, correlated / len(corCSIa1P), "\033[0m")
 
-            corCSIa1P = []
-            for i in range(len(sortCSIa1P)):
-                for j in range(len(sortNoise)):
-                    if np.std(sortCSIa1P[i]) == 0 or np.std(sortNoise[j]) == 0:
-                        corCSIa1P.append(0)
-                    else:
-                        corCSIa1P.append(pearsonr(sortCSIa1P[i], sortNoise[j])[0])
-            corCSIa1P.sort()
-            correlated = 0
-            for i in range(len(corCSIa1P)):
-                if abs(corCSIa1P[i]) >= 0.8:
-                    correlated += 1
-            print("\033[0;30;42mcorCSIa1P:", len(corCSIa1P), corCSIa1P, "\033[0m")
-            print("\033[0;30;42mcorCSIa1P:", correlated, correlated / len(corCSIa1P), "\033[0m")
+        # corCSIa1P = []
+        # for i in range(len(sortCSIa1P)):
+        #     for j in range(len(sortNoise)):
+        #         if np.std(sortCSIa1P[i]) == 0 or np.std(sortNoise[j]) == 0:
+        #             corCSIa1P.append(0)
+        #         else:
+        #             corCSIa1P.append(pearsonr(sortCSIa1P[i], sortNoise[j])[0])
+        # corCSIa1P.sort()
+        # correlated = 0
+        # for i in range(len(corCSIa1P)):
+        #     if abs(corCSIa1P[i]) >= 0.8:
+        #         correlated += 1
+        # print("\033[0;30;42mcorCSIa1P:", len(corCSIa1P), corCSIa1P, "\033[0m")
+        # print("\033[0;30;42mcorCSIa1P:", correlated, correlated / len(corCSIa1P), "\033[0m")
 
-            print("numbers of insert:", insertNum)
-            print("numbers of delete:", deleteNum)
+        # print("numbers of insert:", insertNum)
+        # print("numbers of delete:", deleteNum)
 
-            # plt.figure()
-            # plt.plot(range(len(sortCSIa1P)), sortCSIa1P, color="red", linewidth=.5, label="sortCSIa1P segment edit")
-            # plt.legend(loc='upper left')
-            # if isShow:
-            #     plt.show()
-            # else:
-            #     plt.close()
         # 用a1P匹配ai，得到rule，再用rule对其a1P
-        # 不同的距离函数对应着不同的阈值
-        # ADD NOISE
-        # threshold = 1  # euclidean, manhattan
-        # threshold = 0.2  # chebyshev
-        # threshold = 0.1  # cosine, dtw, absolute
-        # threshold = 1.01  # correlation
-        # WITHOUT NOISE
-        # threshold = 0.05  # absolute
-        # threshold = 0.2  # euclidean, chebyshev
-        # threshold = 0.3  # manhattan
-        # threshold = 0.99  # cosine
-        # threshold = 0.01  # dtw
-        threshold = 0.02  # correlation
-        # threshold = diffAB
-        # 只匹配相等的元素位置敌手的成功率很低，但加密强度不高
-        # ruleStr1 = alignFloat(rule, sortCSIa1P, sortCSIa1, threshold)
-        # alignStr1 = genAlign(ruleStr1)
-        # print("ruleStr1", len(ruleStr1), ruleStr1)
-        # ruleStr2 = alignFloat(rule, sortCSIa1P, sortCSIb1, threshold)
-        # alignStr2 = genAlign(ruleStr2)
-        # print("ruleStr2", len(ruleStr2), ruleStr2)
-        # ruleStr3 = alignFloat(rule, sortCSIa1P, sortCSIe1, threshold)
-        # alignStr3 = genAlign(ruleStr3)
-        # print("ruleStr3", len(ruleStr3), ruleStr3)
-        # ruleStr4 = alignFloat(rule, sortCSIa1P, sortNoise, threshold)
-        # alignStr4 = genAlign(ruleStr4)
-
-        # 匹配所有的编辑操作使得敌手的成功率变高
-        # ruleStr1 = alignFloat(rule, sortCSIa1P, sortCSIa1, threshold)
-        # alignStr1 = genAlign2(ruleStr1)
-        # print("ruleStr1", len(ruleStr1), ruleStr1)
-        # ruleStr2 = alignFloat(rule, sortCSIa1P, sortCSIb1, threshold)
-        # alignStr2 = genAlign2(ruleStr2)
-        # print("ruleStr2", len(ruleStr2), ruleStr2)
-        # ruleStr3 = alignFloat(rule, sortCSIa1P, sortCSIe1, threshold)
-        # alignStr3 = genAlign2(ruleStr3)
-        # print("ruleStr3", len(ruleStr3), ruleStr3)
-        # ruleStr4 = alignFloat(rule, sortCSIa1P, sortNoise, threshold)
-        # alignStr4 = genAlign2(ruleStr4)
-
         # 匹配不相等的是在敌手成功率和加密强度间的折中
         ruleStr1 = alignFloatInsDelWithMetrics(rule, sortCSIa1P, sortCSIa1, threshold, metric)
         alignStr1 = genAlign(ruleStr1)
@@ -486,6 +395,13 @@ for segLen in range(2, 11):
         for i in range(min(len(a_list), len(n_list))):
             sum4 += (a_list[i] == n_list[i])
 
+        if sum2 == sum1:
+            print("\033[0;32;40ma-b", sum2, sum2 / sum1, "\033[0m")
+        else:
+            print("\033[0;31;40ma-b", sum2, sum2 / sum1, "\033[0m")
+        print("a-e", sum3, sum3 / sum1)
+        print("a-n", sum4, sum4 / sum1)
+        print("----------------------")
         originSum += sum1
         correctSum += sum2
         randomSum += sum3
@@ -501,3 +417,9 @@ for segLen in range(2, 11):
     print("a-b whole match", correctWholeSum, "/", originWholeSum, "=", correctWholeSum / originWholeSum)
     print("a-e whole match", randomWholeSum, "/", originWholeSum, "=", randomWholeSum / originWholeSum)
     print("a-n whole match", noiseWholeSum, "/", originWholeSum, "=", noiseWholeSum / originWholeSum)
+    print("times", times)
+    csv.write(fileName + ',' + str(times) + ',' + str(threshold) + ',' + str(segLen) + ',' + str(maxDiffAB)
+              + ',' + str(correctSum / originSum) + ',' + str(randomSum / originSum)
+              + ',' + str(noiseSum / originSum) + ',' + str(correctWholeSum / originWholeSum)
+              + ',' + str(randomWholeSum / originWholeSum) + ',' + str(noiseWholeSum / originWholeSum) + '\n')
+csv.close()
